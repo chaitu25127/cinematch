@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CineMatch</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0d0d0d;
+    color: #e8e8e8;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    background: linear-gradient(135deg, #1a0800 0%, #0d0d0d 70%);
+    border-bottom: 1px solid #222;
+    padding: 2.5rem 2rem 2rem;
+  }
+  header h1 { font-size: 2.4rem; font-weight: 700; letter-spacing: -1px; }
+  header h1 span { color: #e85c0d; }
+  header p { color: #666; font-size: 0.95rem; margin-top: 4px; }
+
+  .search-wrap {
+    max-width: 960px;
+    margin: 2.5rem auto;
+    padding: 0 1.5rem;
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+  }
+  .search-group { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+  .search-group label { font-size: 0.78rem; letter-spacing: 1px; text-transform: uppercase; color: #666; }
+
+  .select-wrapper { position: relative; }
+  #search-input {
+    width: 100%;
+    background: #181818;
+    border: 1px solid #333;
+    border-radius: 8px;
+    color: #e8e8e8;
+    font-size: 1rem;
+    padding: 0.65rem 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  #search-input:focus { border-color: #e85c0d; }
+  #search-input::placeholder { color: #444; }
+
+  #dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0; right: 0;
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 100;
+    display: none;
+  }
+  #dropdown.open { display: block; }
+  .drop-item { padding: 0.55rem 1rem; font-size: 0.9rem; cursor: pointer; color: #ccc; }
+  .drop-item:hover, .drop-item.active { background: #2a2a2a; color: #e85c0d; }
+
+  #recommend-btn {
+    background: #e85c0d;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.65rem 1.8rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    height: 44px;
+    transition: background 0.2s, transform 0.1s;
+  }
+  #recommend-btn:hover { background: #c44d0a; }
+  #recommend-btn:active { transform: scale(0.97); }
+
+  .results-wrap { max-width: 960px; margin: 0 auto 3rem; padding: 0 1.5rem; }
+  .results-label {
+    font-size: 0.72rem; letter-spacing: 1.5px; text-transform: uppercase;
+    color: #e85c0d; margin-bottom: 1.2rem;
+  }
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+  }
+  @media (max-width: 700px) { .cards-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .card {
+    background: #181818;
+    border: 1px solid #222;
+    border-radius: 10px;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .card:hover { transform: translateY(-5px); border-color: #e85c0d; }
+  .card img {
+    width: 100%; aspect-ratio: 2/3; object-fit: cover;
+    display: block; background: #111;
+  }
+  .card-body { padding: 0.7rem; }
+  .card-title {
+    font-size: 0.83rem; font-weight: 600; color: #ddd;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  #status { text-align: center; color: #666; padding: 3rem 0; font-size: 0.95rem; }
+  .spinner {
+    width: 28px; height: 28px;
+    border: 3px solid #2a2a2a; border-top-color: #e85c0d;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto 1rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error { color: #e85c0d; }
+  code { background: #1e1e1e; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Cine<span>Match</span></h1>
+  <p>5 000 movies · cosine similarity · instant picks</p>
+</header>
+
+<div class="search-wrap">
+  <div class="search-group">
+    <label for="search-input">Pick a movie you love</label>
+    <div class="select-wrapper">
+      <input id="search-input" type="text" placeholder="Start typing a title…" autocomplete="off" />
+      <div id="dropdown"></div>
+    </div>
+  </div>
+  <button id="recommend-btn">Recommend →</button>
+</div>
+
+<div class="results-wrap">
+  <div id="status"></div>
+  <div id="results-label" class="results-label" style="display:none;"></div>
+  <div id="cards" class="cards-grid"></div>
+</div>
+
+<script>
+  const API = "http://127.0.0.1:5000";
+
+  const input    = document.getElementById("search-input");
+  const dropdown = document.getElementById("dropdown");
+  const btn      = document.getElementById("recommend-btn");
+  const statusEl = document.getElementById("status");
+  const labelEl  = document.getElementById("results-label");
+  const cardsEl  = document.getElementById("cards");
+
+  let allMovies = [];
+  let selected  = "";
+  let activeIdx = -1;
+
+  async function loadMovies() {
+    setStatus("Loading movie list…");
+    try {
+      const res = await fetch(`${API}/movies`);
+      allMovies = await res.json();
+      setStatus("Choose a movie above and hit Recommend.");
+    } catch {
+      setStatus(`<span class="error">
+        Cannot reach the Flask server.<br>
+        Run <code>python api.py</code> in your terminal first, then refresh.
+      </span>`);
+    }
+  }
+
+  input.addEventListener("input", () => {
+    selected = "";
+    const q = input.value.trim().toLowerCase();
+    if (!q) { closeDropdown(); return; }
+    const hits = allMovies.filter(t => t.toLowerCase().includes(q)).slice(0, 50);
+    renderDropdown(hits);
+  });
+
+  input.addEventListener("keydown", (e) => {
+    const items = dropdown.querySelectorAll(".drop-item");
+    if (e.key === "ArrowDown")  { activeIdx = Math.min(activeIdx + 1, items.length - 1); highlight(items); e.preventDefault(); }
+    else if (e.key === "ArrowUp") { activeIdx = Math.max(activeIdx - 1, 0); highlight(items); e.preventDefault(); }
+    else if (e.key === "Enter") {
+      if (activeIdx >= 0 && items[activeIdx]) pick(items[activeIdx].textContent);
+      else if (items.length === 1) pick(items[0].textContent);
+    }
+    else if (e.key === "Escape") closeDropdown();
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".select-wrapper")) closeDropdown();
+  });
+
+  function renderDropdown(titles) {
+    dropdown.innerHTML = titles.map(t => `<div class="drop-item">${t}</div>`).join("");
+    dropdown.classList.add("open");
+    activeIdx = -1;
+    dropdown.querySelectorAll(".drop-item").forEach(el => {
+      el.addEventListener("click", () => pick(el.textContent));
+    });
+  }
+
+  function highlight(items) {
+    items.forEach((el, i) => el.classList.toggle("active", i === activeIdx));
+    if (items[activeIdx]) items[activeIdx].scrollIntoView({ block: "nearest" });
+  }
+
+  function pick(title) {
+    selected = title;
+    input.value = title;
+    closeDropdown();
+  }
+
+  function closeDropdown() {
+    dropdown.classList.remove("open");
+    activeIdx = -1;
+  }
+
+  btn.addEventListener("click", async () => {
+    const title = selected || input.value.trim();
+    if (!title) { setStatus("Please choose a movie first."); return; }
+
+    cardsEl.innerHTML = "";
+    labelEl.style.display = "none";
+    setStatus('<div class="spinner"></div>Finding your next favourites…');
+
+    try {
+      const res  = await fetch(`${API}/recommend?title=${encodeURIComponent(title)}`);
+      const data = await res.json();
+
+      if (!res.ok) { setStatus(`<span class="error">${data.error || "Movie not found."}</span>`); return; }
+
+      statusEl.textContent   = "";
+      labelEl.textContent    = `Because you liked — ${title}`;
+      labelEl.style.display  = "block";
+
+      cardsEl.innerHTML = data.map(m => `
+        <div class="card">
+          <img src="${m.poster}" alt="${m.title}" loading="lazy"
+               onerror="this.src='https://placehold.co/300x450/181818/555?text=No+Poster'" />
+          <div class="card-body">
+            <p class="card-title" title="${m.title}">${m.title}</p>
+          </div>
+        </div>
+      `).join("");
+    } catch {
+      setStatus('<span class="error">Cannot reach the Flask server.</span>');
+    }
+  });
+
+  function setStatus(html) {
+    statusEl.innerHTML = html;
+    cardsEl.innerHTML  = "";
+    labelEl.style.display = "none";
+  }
+
+  loadMovies();
+</script>
+</body>
+</html>
