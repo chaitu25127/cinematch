@@ -7,11 +7,11 @@ import requests
 app = Flask(__name__)
 CORS(app)
 
-# ── Load pickles (saved from your notebook) ──
-new_df     = pickle.load(open("movies.pkl", "rb"))     # your new_df DataFrame
-similarity = pickle.load(open("similarity.pkl", "rb")) # your similarity matrix
+# Load pickles (saved from your notebook)
+new_df     = pickle.load(open("movies.pkl", "rb"))     # new_df DataFrame
+similarity = pickle.load(open("similarity.pkl", "rb")) # similarity matrix
 
-TMDB_API_KEY = "YOUR_TMDB_API_KEY"   # ← paste your key here (free at themoviedb.org)
+TMDB_API_KEY = "YOUR_TMDB_API_KEY"   
 POSTER_BASE  = "https://image.tmdb.org/t/p/w500"
 FALLBACK     = "https://placehold.co/300x450/181818/555?text=No+Poster"
 
@@ -39,15 +39,14 @@ def recommend():
     """Return 5 recommendations — matches your notebook logic exactly."""
     movie = request.args.get("title", "")
 
-    # case-insensitive match (same as your notebook)
+    
     mask = new_df["title"].str.lower() == movie.lower()
     if not mask.any():
         return jsonify({"error": "Movie not found"}), 404
 
     mov_index  = new_df[mask].index[0]
     distance   = similarity[mov_index]
-    mov_list   = np.argsort(distance)[::-1]   # same as your notebook
-
+    mov_list   = np.argsort(distance)[::-1]  
     results = []
     for i in mov_list[1:6]:
         row = new_df.iloc[i]
