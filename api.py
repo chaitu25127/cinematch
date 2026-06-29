@@ -11,7 +11,7 @@ CORS(app)
 new_df     = pickle.load(open("movies.pkl", "rb"))     # your new_df DataFrame
 similarity = pickle.load(open("similarity.pkl", "rb")) # your similarity matrix
 
-TMDB_API_KEY = "YOUR_TMDB_API_KEY"   # ← paste your key here (free at themoviedb.org)
+TMDB_API_KEY = "deab40e7206acc4351a86428a49a4496"   
 POSTER_BASE  = "https://image.tmdb.org/t/p/w500"
 FALLBACK     = "https://placehold.co/300x450/181818/555?text=No+Poster"
 
