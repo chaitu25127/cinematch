@@ -17,7 +17,6 @@ FALLBACK     = "https://placehold.co/300x450/181818/555?text=No+Poster"
 
 
 def fetch_poster(movie_id):
-        return FALLBACK
     try:
         url  = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={TMDB_API_KEY}"
         data = requests.get(url, timeout=5).json()
@@ -59,4 +58,4 @@ def recommend():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=True, host="0.0.0.0", port=5000)
